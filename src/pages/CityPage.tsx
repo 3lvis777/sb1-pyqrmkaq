@@ -260,7 +260,20 @@ export default function CityPage() {
                   </Link>
                 </h3>
                 <p className="text-sm text-gray-500">
-                  {language === 'en' ? article.content : article.content_cn}
+                  {language === 'en' 
+                    ? article.content
+                      .replace(/<[^>]*>/g, '') // Remove HTML tags
+                      .split(' ')
+                      .slice(0, 100) // Get first 100 words
+                      .join(' ')
+                      .concat(article.content.split(' ').length > 100 ? '...' : '')
+                    : article.content_cn
+                      .replace(/<[^>]*>/g, '')
+                      .split('')
+                      .slice(0, 100) // Get first 100 characters for Chinese
+                      .join('')
+                      .concat(article.content_cn.split('').length > 100 ? '...' : '')
+                  }
                 </p>
                 <time className="block mt-4 text-sm text-gray-400">
                   {new Date(article.created_at).toLocaleDateString()}
