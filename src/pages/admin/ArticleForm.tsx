@@ -20,6 +20,8 @@ export default function ArticleForm() {
   const [filteredTags, setFilteredTags] = useState<Tag[]>([]);
   const [publishing, setPublishing] = useState(false);
   const [showTagForm, setShowTagForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [existingFeaturedImage, setExistingFeaturedImage] = useState<string | null>(null);
   const [newTagData, setNewTagData] = useState({
     name: '',
     name_cn: '',
@@ -140,6 +142,7 @@ export default function ArticleForm() {
     }
 
     if (articleData) {
+      setExistingFeaturedImage(articleData.featured_image);
       setFormData({
         title: articleData.title || '',
         title_cn: articleData.title_cn || '',
@@ -220,10 +223,23 @@ export default function ArticleForm() {
     }
   };
 
+  const handleSavePublished = async () => {
+    try {
+      setSaving(true);
+      const savedArticle = await saveArticle(true, true);
+      toast.success('Changes saved successfully');
+    } catch (error) {
+      console.error('Error saving article:', error);
+      toast.error('Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handlePublish = async () => {
     try {
       setPublishing(true);
-      const publishedArticle = await saveArticle(true);
+      const publishedArticle = await saveArticle(true, false);
       toast.success('Article published successfully');
       navigate('/admin/articles');
     } catch (error) {
@@ -234,9 +250,9 @@ export default function ArticleForm() {
     }
   };
 
-  async function saveArticle(shouldPublish: boolean = false) {
+  async function saveArticle(shouldPublish: boolean = false, keepStatus: boolean = false) {
     try {
-      let featuredImageUrl = formData.featured_image;
+      let featuredImageUrl = existingFeaturedImage;
       
       if (formData.featured_image instanceof File) {
         featuredImageUrl = await uploadImage(
@@ -248,7 +264,7 @@ export default function ArticleForm() {
       const articleData = {
         title: formData.title,
         title_cn: formData.title_cn,
-        status: shouldPublish ? 'published' : 'draft',
+        status: keepStatus ? formData.status : (shouldPublish ? 'published' : 'draft'),
         slug: formData.slug,
         content: formData.content,
         content_cn: formData.content_cn,
@@ -472,14 +488,28 @@ export default function ArticleForm() {
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Featured Image
+                {existingFeaturedImage && (
+                  <span className="text-sm text-gray-500 ml-2">
+                    (Current image will be kept unless you choose a new one)
+                  </span>
+                )}
               </label>
+              {existingFeaturedImage && (
+                <div className="mt-2 mb-4">
+                  <img
+                    src={existingFeaturedImage}
+                    alt="Featured"
+                    className="w-full max-w-md h-48 object-cover rounded-lg shadow-sm"
+                  />
+                </div>
+              )}
               <input
                 type="file"
                 accept="image/*"
                 onChange={(e) =>
                   setFormData((prev) => ({
                     ...prev,
-                    featured_image: e.target.files?.[0],
+                    featured_image: e.target.files?.[0] || existingFeaturedImage,
                   }))
                 }
                 className="mt-1 block w-full"
@@ -571,6 +601,23 @@ export default function ArticleForm() {
               <Eye className="h-4 w-4 mr-2" />
               Preview
             </button>
+            {formData.status === 'published' && (
+              <button
+                type="button"
+                disabled={saving || publishing || savingDraft}
+                onClick={handleSavePublished}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </button>
+            )}
             {formData.status === 'draft' && (
               <button
                 type="button"

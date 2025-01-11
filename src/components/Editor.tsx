@@ -247,11 +247,11 @@ const MenuBar = ({ editor }: { editor: any }) => {
   };
 
   const handlePaste = async (event: ClipboardEvent) => {
+    event.preventDefault(); // Prevent default paste behavior
     const text = event.clipboardData?.getData('text/plain');
     const html = event.clipboardData?.getData('text/html');
 
     if (html) {
-      event.preventDefault();
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = html;
 
@@ -273,8 +273,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
     } else if (text) {
       // Handle plain text with URL detection
       const urlRegex = /(https?:\/\/[^\s]+)/g;
-      if (urlRegex.test(text)) {
-        event.preventDefault();
+      if (urlRegex.test(text)) {        
         const content = text.replace(urlRegex, (url) => {
           return `<a href="${url}">${url}</a>`;
         });
@@ -283,18 +282,26 @@ const MenuBar = ({ editor }: { editor: any }) => {
           .focus()
           .insertContent(content)
           .run();
+      } else {
+        // Insert plain text directly
+        editor
+          .chain()
+          .focus()
+          .insertContent(text)
+          .run();
       }
     }
   };
 
   React.useEffect(() => {
     if (editor?.view?.dom) {
-      editor.view.dom.addEventListener('paste', handlePaste);
+      const dom = editor.view.dom;
+      dom.addEventListener('paste', handlePaste);
       return () => {
-        editor.view.dom.removeEventListener('paste', handlePaste);
+        dom.removeEventListener('paste', handlePaste);
       };
     }
-  }, [editor]);
+  }, [editor, handlePaste]);
 
   const removeLink = () => {
     editor
@@ -426,12 +433,12 @@ export default function Editor({ content, onChange, placeholder }: EditorProps) 
         },
         bulletList: {
           keepMarks: true,
-          keepAttributes: false,
+          keepAttributes: true
         },
         orderedList: {
           keepMarks: true,
-          keepAttributes: false,
-        },
+          keepAttributes: true
+        }
       }),
       Link.configure({
         openOnClick: false,

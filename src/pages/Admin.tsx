@@ -1,6 +1,9 @@
-import React from 'react';
-import { FileText, FolderTree, Tags, LayoutDashboard, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FileText, FolderTree, Tags, LayoutDashboard, Plus, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
+import type { Article } from '../types/cms';
 
 const stats = [
   {
@@ -25,31 +28,35 @@ const stats = [
     color: 'bg-purple-500',
   },
 ];
-const recentArticles = [
-  {
-    id: '1',
-    title: '2025 Must-Try Sushi Restaurants',
-    titleCn: '2025必吃回转寿司5选',
-    category: 'Food',
-    date: '2024-01-15',
-  },
-  {
-    id: '2',
-    title: 'Shopping in Sapporo',
-    titleCn: '札幌购物攻略',
-    category: 'Shopping',
-    date: '2024-01-14',
-  },
-  {
-    id: '3',
-    title: 'Best Ski Resorts',
-    titleCn: '北海道滑雪场推荐',
-    category: 'Activities',
-    date: '2024-01-13',
-  },
-];
-
 export default function Admin() {
+  const [recentArticles, setRecentArticles] = useState<Article[]>([]);
+  const [loadingArticles, setLoadingArticles] = useState(true);
+
+  useEffect(() => {
+    loadRecentArticles();
+  }, []);
+
+  async function loadRecentArticles() {
+    try {
+      const { data, error } = await supabase
+        .from('articles')
+        .select(`
+          *,
+          category:categories!articles_category_id_fkey(name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setRecentArticles(data || []);
+    } catch (error) {
+      console.error('Error loading recent articles:', error);
+      toast.error('Failed to load recent articles');
+    } finally {
+      setLoadingArticles(false);
+    }
+  }
+
 
   return (
     <div className="p-6">
@@ -101,7 +108,12 @@ export default function Admin() {
       <div className="bg-white rounded-lg shadow-sm">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium text-gray-900">Recent Articles</h2>
+            <h2 className="text-lg font-medium text-gray-900">
+              Recent Articles
+              {loadingArticles && (
+                <Loader2 className="ml-2 h-4 w-4 inline animate-spin text-gray-400" />
+              )}
+            </h2>
             <Link
               to="/admin/articles" 
               className="text-sm font-medium text-red-500 hover:text-red-600"
@@ -111,7 +123,7 @@ export default function Admin() {
           </div>
         </div>
         <div className="divide-y divide-gray-200">
-          {recentArticles.map((article) => (
+          {recentArticles.length > 0 ? recentArticles.map((article) => (
             <Link
               key={article.id}
               to={`/admin/articles/${article.id}/edit`}
@@ -126,13 +138,25 @@ export default function Admin() {
                 </div>
                 <div className="text-right">
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {article.category}
+                    {article.category?.name}
                   </span>
-                  <p className="mt-1 text-xs text-gray-500">{article.date}</p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {new Date(article.created_at).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
             </Link>
-          ))}
+          )) : (
+            <div className="p-6 text-center">
+              {loadingArticles ? (
+                <Loader2 className="h-8 w-8 mx-auto animate-spin text-gray-400" />
+              ) : (
+                <p className="text-gray-500">
+                  No articles found. Create your first article to get started.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
