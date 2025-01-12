@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Search, Trash2, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Upload, Search, Trash2, Loader2, Image as ImageIcon, Edit2, Check, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -15,10 +15,56 @@ export default function Media() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingFile, setEditingFile] = useState<string | null>(null);
+  const [newFileName, setNewFileName] = useState('');
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     loadFiles();
   }, []);
+
+  const handleStartRename = (file: MediaFile) => {
+    setEditingFile(file.name);
+    setNewFileName(file.name.split('.').slice(0, -1).join('.'));
+  };
+
+  const handleCancelRename = () => {
+    setEditingFile(null);
+    setNewFileName('');
+  };
+
+  const handleRename = async (oldName: string) => {
+    const extension = oldName.split('.').pop();
+    const newFullName = `${newFileName}.${extension}`;
+
+    if (newFullName === oldName) {
+      handleCancelRename();
+      return;
+    }
+
+    try {
+      // Copy the file with the new name
+      const { data: copyData, error: copyError } = await supabase.storage
+        .from('images')
+        .copy(oldName, newFullName);
+
+      if (copyError) throw copyError;
+
+      // Delete the old file
+      const { error: deleteError } = await supabase.storage
+        .from('images')
+        .remove([oldName]);
+
+      if (deleteError) throw deleteError;
+
+      toast.success('File renamed successfully');
+      handleCancelRename();
+      loadFiles();
+    } catch (error) {
+      console.error('Error renaming file:', error);
+      toast.error('Failed to rename file');
+    }
+  };
 
   async function loadFiles() {
     try {
@@ -84,19 +130,25 @@ export default function Media() {
   async function handleDelete(fileName: string) {
     const confirmed = window.confirm('Are you sure you want to delete this file?');
     if (!confirmed) return;
+    
+    setDeleting(fileName);
 
     try {
       const { error } = await supabase.storage
         .from('images')
         .remove([fileName]);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
+      setFiles(prevFiles => prevFiles.filter(file => file.name !== fileName));
       toast.success('File deleted successfully');
-      loadFiles();
     } catch (error) {
       console.error('Error deleting file:', error);
       toast.error('Failed to delete file');
+    } finally {
+      setDeleting(null);
     }
   }
 
@@ -157,9 +209,10 @@ export default function Media() {
             <div className="aspect-w-16 aspect-h-9 bg-gray-100 relative">
               {file.url ? (
                 <img
+                  onClick={() => handleStartRename(file)}
                   src={file.url}
                   alt={file.name}
-                  className="w-full h-48 object-cover"
+                  className="w-full h-48 object-cover cursor-pointer"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.src = 'https://via.placeholder.com/400x300?text=Error+Loading+Image';
@@ -180,9 +233,41 @@ export default function Media() {
               </div>
             </div>
             <div className="p-4">
-              <p className="text-sm font-medium text-gray-900 truncate" title={file.name}>
-                {file.name}
-              </p>
+              {editingFile === file.name ? (
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={newFileName}
+                    onChange={(e) => setNewFileName(e.target.value)}
+                    className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+                    autoFocus
+                  />
+                  <button
+                    onClick={() => handleRename(file.name)}
+                    className="p-1 text-green-500 hover:text-green-600"
+                  >
+                    <Check className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={handleCancelRename}
+                    className="p-1 text-gray-500 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-900 truncate" title={file.name}>
+                    {file.name}
+                  </p>
+                  <button
+                    onClick={() => handleStartRename(file)}
+                    className="p-1 text-gray-500 hover:text-gray-600"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
               <p className="text-sm text-gray-500">
                 {formatFileSize(file.size)}
               </p>
