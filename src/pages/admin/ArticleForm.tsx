@@ -308,28 +308,45 @@ export default function ArticleForm() {
 
   async function handleTags(articleId: string) {
     try {
-      // Delete existing tags first
-      const { error: deleteError } = await supabase
+      // Get existing tags
+      const { data: existingTags } = await supabase
         .from('article_tags')
-        .delete()
+        .select('tag_id')
         .eq('article_id', articleId);
 
-      if (deleteError) throw deleteError;
+      const existingTagIds = new Set(existingTags?.map(t => t.tag_id) || []);
+      const newTagIds = new Set(formData.tag_ids);
 
-      // Add new tags one by one to prevent duplicates
+      // Tags to remove (in existing but not in new)
+      const tagsToRemove = [...existingTagIds].filter(id => !newTagIds.has(id));
+      
+      // Tags to add (in new but not in existing)
+      const tagsToAdd = [...newTagIds].filter(id => !existingTagIds.has(id));
+
+      // Remove old tags
+      if (tagsToRemove.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('article_tags')
+          .delete()
+          .eq('article_id', articleId)
+          .in('tag_id', tagsToRemove);
+
+        if (deleteError) throw deleteError;
+      }
+
+      // Add new tags
       if (formData.tag_ids.length > 0) {
-        const uniqueTagIds = [...new Set(formData.tag_ids)];
-        
-        for (const tagId of uniqueTagIds) {
-          const { error: insertError } = await supabase
-            .from('article_tags')
-            .insert({ article_id: articleId, tag_id: tagId })
-            .select()
-            .single();
+        const { error: insertError } = await supabase
+          .from('article_tags')
+          .insert(
+            tagsToAdd.map(tagId => ({
+              article_id: articleId,
+              tag_id: tagId
+            }))
+          );
 
-          if (insertError && insertError.code !== '23505') { // Ignore duplicate key errors
-            throw insertError;
-          }
+        if (insertError) {
+          throw insertError;
         }
       }
     } catch (error) {

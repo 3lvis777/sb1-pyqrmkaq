@@ -7,6 +7,7 @@ import Link from '@tiptap/extension-link';
 import { Bold, Italic, List, ListOrdered, Heading1, Heading2, Heading3, Image as ImageIcon, Link as LinkIcon, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
+import MediaModal from './MediaModal';
 
 interface LinkModalProps {
   isOpen: boolean;
@@ -225,6 +226,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
   }
 
   const [showLinkModal, setShowLinkModal] = React.useState(false);
+  const [showMediaModal, setShowMediaModal] = React.useState(false);
   
   const handleLinkSubmit = (text: string, url: string) => {    
     // If there's no selection, insert new text with link
@@ -244,6 +246,11 @@ const MenuBar = ({ editor }: { editor: any }) => {
         .setLink({ href: url })
         .run();
     }
+  };
+
+  const handleImageSelect = (url: string) => {
+    editor.chain().focus().setImage({ src: url }).run();
+    setShowMediaModal(false);
   };
 
   const handlePaste = async (event: ClipboardEvent) => {
@@ -309,28 +316,6 @@ const MenuBar = ({ editor }: { editor: any }) => {
       .focus()
       .unsetLink()
       .run();
-  };
-
-  const addImage = async () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (file) {
-        try {
-          const url = await uploadImage(file);
-          editor.chain().focus().setImage({ src: url }).run();
-          toast.success('Image uploaded successfully');
-        } catch (error) {
-          console.error('Error uploading image:', error);
-          toast.error('Failed to upload image');
-        }
-      }
-    };
-    
-    input.click();
   };
 
   return (
@@ -399,7 +384,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
         <ListOrdered className="h-4 w-4" />
       </button>
       <button
-        onClick={addImage}
+        onClick={() => setShowMediaModal(true)}
         className="p-2 rounded hover:bg-gray-100"
       >
         <ImageIcon className="h-4 w-4" />
@@ -419,11 +404,18 @@ const MenuBar = ({ editor }: { editor: any }) => {
           editor.state.selection.to
         )}
       />
+      <MediaModal
+        isOpen={showMediaModal}
+        onClose={() => setShowMediaModal(false)}
+        onSelect={handleImageSelect}
+      />
     </div>
   );
 };
 
 export default function Editor({ content, onChange, placeholder }: EditorProps) {
+  const [showMediaModal, setShowMediaModal] = React.useState(false);
+  
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -473,10 +465,21 @@ export default function Editor({ content, onChange, placeholder }: EditorProps) 
     }
   }, [content, editor]);
 
+  const handleImageSelect = (url: string) => {
+    if (editor) {
+      editor.chain().focus().setImage({ src: url }).run();
+    }
+  };
+
   return (
     <div className="border rounded-lg overflow-hidden bg-white">
       <MenuBar editor={editor} />
       <EditorContent editor={editor} />
+      <MediaModal
+        isOpen={showMediaModal}
+        onClose={() => setShowMediaModal(false)}
+        onSelect={handleImageSelect}
+      />
     </div>
   );
 }

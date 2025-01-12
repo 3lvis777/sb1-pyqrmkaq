@@ -68,3 +68,24 @@ export interface ArticleFormData {
   tag_ids: string[];
   gallery_images?: File[];
 }
+
+export interface MediaFile {
+  id: string;
+  name: string;
+  original_name: string;
+  url: string;
+  size: number;
+  mime_type: string;
+  alt_text: string | null;
+  tags: string[];
+  usage_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MediaTag {
+  id: string;
+  name: string;
+  slug: string;
+  created_at: string;
+}
