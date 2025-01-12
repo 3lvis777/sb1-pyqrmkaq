@@ -3,7 +3,10 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { MapPin, ArrowRight } from 'lucide-react';
 import LanguageToggle from '../components/LanguageToggle';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import MediaModal from '../components/MediaModal';
 
 interface Category {
   id: string;
@@ -27,8 +30,8 @@ interface Article {
 
 export default function CityPage() {
   const { cityId } = useParams<{ cityId: string }>();
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
   const [articles, setArticles] = useState<Article[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -37,13 +40,52 @@ export default function CityPage() {
   const [language, setLanguage] = useState<'en' | 'cn'>(
     searchParams.get('lang') === 'en' ? 'en' : 'cn'
   );
+  const [showMediaModal, setShowMediaModal] = useState(false);
+  const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
   const [cityData, setCityData] = useState<{
+    id: string;
     name: string;
     name_cn: string;
     description: string;
     description_cn: string;
     hero_image_url: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      checkAdminStatus();
+    }
+  }, [user]);
+
+  async function checkAdminStatus() {
+    const { data } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', user!.id)
+      .single();
+    setIsAdmin(data?.is_admin || false);
+  }
+
+  const handleHeroImageSelect = async (url: string) => {
+    if (!cityData) return;
+
+    try {
+      const { error } = await supabase
+        .from('categories')
+        .update({ hero_image_url: url })
+        .eq('id', cityData.id);
+
+      if (error) throw error;
+
+      setCityData(prev => prev ? { ...prev, hero_image_url: url } : null);
+      setShowMediaModal(false);
+      toast.success('Hero image updated successfully');
+    } catch (error) {
+      console.error('Error updating hero image:', error);
+      toast.error('Failed to update hero image');
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -89,6 +131,7 @@ export default function CityPage() {
 
       if (cityData) {
         setCityData({
+          id: cityData.id,
           name: cityData.name,
           name_cn: cityData.name_cn,
           description: cityData.introduction || cityData.description,
@@ -181,6 +224,14 @@ export default function CityPage() {
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
+        {isAdmin && (
+          <button
+            onClick={() => setShowMediaModal(true)}
+            className="absolute top-4 right-4 px-4 py-2 bg-white/90 hover:bg-white rounded-md shadow-lg text-sm font-medium text-gray-900"
+          >
+            Change Hero Image
+          </button>
+        )}
         <div className="absolute bottom-0 left-0 right-0 p-8">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-4">
@@ -290,6 +341,11 @@ export default function CityPage() {
           ))}
         </div>
       </div>
+      <MediaModal
+        isOpen={showMediaModal}
+        onClose={() => setShowMediaModal(false)}
+        onSelect={handleHeroImageSelect}
+      />
     </div>
   );
 }

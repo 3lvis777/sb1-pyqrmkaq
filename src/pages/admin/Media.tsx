@@ -21,6 +21,7 @@ export default function Media() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [view, setView] = useState<'all' | 'regions'>('all');
   const ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
@@ -308,6 +309,28 @@ export default function Media() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Media Library</h1>
         <div className="flex items-center space-x-4">
+          <div className="flex rounded-md shadow-sm">
+            <button
+              onClick={() => setView('all')}
+              className={`px-4 py-2 text-sm font-medium ${
+                view === 'all'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              } border border-gray-300 rounded-l-md`}
+            >
+              All Media
+            </button>
+            <button
+              onClick={() => setView('regions')}
+              className={`px-4 py-2 text-sm font-medium ${
+                view === 'regions'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              } border border-l-0 border-gray-300 rounded-r-md`}
+            >
+              Region Images
+            </button>
+          </div>
           {selectedFiles.length > 0 && (
             <button
               onClick={handleBulkDelete}
@@ -335,6 +358,11 @@ export default function Media() {
       <div className="mb-6 space-y-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+          {view === 'regions' && (
+            <div className="absolute left-full ml-4 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">
+              Showing images used in region pages
+            </div>
+          )}
           <input
             type="text"
             placeholder="Search files..."

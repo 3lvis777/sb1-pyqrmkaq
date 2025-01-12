@@ -4,38 +4,42 @@ import { supabase } from '../lib/supabase';
 import { Loader2 } from 'lucide-react';
 import type { City } from '../types';
 
+interface CityWithMedia {
+  id: string;
+  nameEn: string;
+  nameCn: string;
+  descriptionCn: string;
+  imageUrl: string;
+  mediaId?: string;
+}
 
 export default function Home() {
-  const [regions, setRegions] = useState<City[]>([]);
+  const [regions, setRegions] = useState<CityWithMedia[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadRegions() {
       try {
-        // Get the location category ID first
-        const { data: locationCategory } = await supabase
+        const { data: locationCategory } = await supabase.from('categories')
+          .select('id').eq('slug', 'location').single();
+
+        if (!locationCategory) return;
+
+        // Get regions with their associated media
+        const { data: regions } = await supabase
           .from('categories')
-          .select('id')
-          .eq('slug', 'location')
-          .single();
+          .select('*')
+          .eq('parent_id', locationCategory.id)
+          .order('popularity', { ascending: false });
 
-        if (locationCategory) {
-          // Then get all subcategories (regions)
-          const { data: regions } = await supabase
-            .from('categories')
-            .select('*')
-            .eq('parent_id', locationCategory.id)
-            .order('popularity', { ascending: false });
-
-          if (regions) {
-            setRegions(regions.map(region => ({
-              id: region.slug,
-              nameEn: region.name,
-              nameCn: region.name_cn,
-              descriptionCn: region.introduction_cn || region.description_cn || '',
-              imageUrl: region.hero_image_url || 'https://images.unsplash.com/photo-1480796927426-f609979314bd?auto=format&fit=crop&w=1000'
-            })));
-          }
+        if (regions) {
+          setRegions(regions.map(region => ({
+            id: region.slug,
+            nameEn: region.name,
+            nameCn: region.name_cn,
+            descriptionCn: region.introduction_cn || region.description_cn || '',
+            imageUrl: region.hero_image_url
+          })));
         }
       } catch (error) {
         console.error('Error loading regions:', error);

@@ -6,7 +6,8 @@ import {
   Tags, 
   FolderTree, 
   Image, 
-  Settings,
+  Settings, 
+  Map,
   LogOut
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -41,6 +42,12 @@ const menuItems = [
     label: 'Media',
     labelCn: '媒体',
     path: '/admin/media'
+  },
+  {
+    icon: Map,
+    label: 'Region Images',
+    labelCn: '地区图片',
+    path: '/admin/media?view=regions'
   },
   {
     icon: Settings,
