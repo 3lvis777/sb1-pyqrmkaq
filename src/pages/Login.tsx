@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { MapPin } from 'lucide-react';
 
@@ -89,11 +89,6 @@ export default function Login() {
               >
                 {loading ? 'Signing in...' : 'Sign in'}
               </button>
-              <div className="mt-4 text-center">
-                <Link to="/signup" className="text-sm text-red-500 hover:text-red-600">
-                  Create an account
-                </Link>
-              </div>
             </div>
           </form>
         </div>

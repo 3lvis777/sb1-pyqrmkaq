@@ -4,6 +4,7 @@ import { Upload, Save, Loader2, Plus, Eye } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Article, Category, Tag, ArticleFormData } from '../../types/cms';
 import Editor from '../../components/Editor';
+import MediaModal from '../../components/MediaModal';
 import { uploadImage } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -22,6 +23,7 @@ export default function ArticleForm() {
   const [showTagForm, setShowTagForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [existingFeaturedImage, setExistingFeaturedImage] = useState<string | null>(null);
+  const [showMediaModal, setShowMediaModal] = useState(false);
   const [newTagData, setNewTagData] = useState({
     name: '',
     name_cn: '',
@@ -248,6 +250,11 @@ export default function ArticleForm() {
     } finally {
       setPublishing(false);
     }
+  };
+
+  const handleFeaturedImageSelect = (url: string) => {
+    setExistingFeaturedImage(url);
+    setShowMediaModal(false);
   };
 
   async function saveArticle(shouldPublish: boolean = false, keepStatus: boolean = false) {
@@ -506,31 +513,42 @@ export default function ArticleForm() {
               <label className="block text-sm font-medium text-gray-700">
                 Featured Image
                 {existingFeaturedImage && (
-                  <span className="text-sm text-gray-500 ml-2">
-                    (Current image will be kept unless you choose a new one)
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setExistingFeaturedImage(null)}
+                    className="ml-2 text-sm text-red-500 hover:text-red-600"
+                  >
+                    Remove image
+                  </button>
                 )}
               </label>
-              {existingFeaturedImage && (
-                <div className="mt-2 mb-4">
+              <div className="mt-2 mb-4">
+                {existingFeaturedImage ? (
                   <img
                     src={existingFeaturedImage}
                     alt="Featured"
                     className="w-full max-w-md h-48 object-cover rounded-lg shadow-sm"
                   />
-                </div>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    featured_image: e.target.files?.[0] || existingFeaturedImage,
-                  }))
-                }
-                className="mt-1 block w-full"
-              />
+                ) : (
+                  <div 
+                    onClick={() => setShowMediaModal(true)}
+                    className="w-full max-w-md h-48 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-red-500 transition-colors"
+                  >
+                    <div className="text-center">
+                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                      <p className="mt-1 text-sm text-gray-500">Click to select an image</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMediaModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {existingFeaturedImage ? 'Change Image' : 'Select Image'}
+              </button>
             </div>
 
             <div>
@@ -663,8 +681,11 @@ export default function ArticleForm() {
           </div>
         </form>
       </div>
-      
-      {/* Rest of the component remains the same */}
+      <MediaModal
+        isOpen={showMediaModal}
+        onClose={() => setShowMediaModal(false)}
+        onSelect={handleFeaturedImageSelect}
+      />
     </div>
   );
 }

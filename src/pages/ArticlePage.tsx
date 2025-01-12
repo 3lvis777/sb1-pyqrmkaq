@@ -94,18 +94,8 @@ export default function ArticlePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <div className="relative h-[50vh] overflow-hidden">
-        <img
-          src={article.featured_image || 'https://images.unsplash.com/photo-1480796927426-f609979314bd?auto=format&fit=crop&w=2000'}
-          alt={article.title}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-      </div>
-
       {/* Article Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 -mt-32 relative z-10">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="bg-white rounded-lg shadow-xl p-8">
           {/* Article Header */}
           <div className="flex justify-between items-start mb-8">
@@ -136,6 +126,17 @@ export default function ArticlePage() {
             </div>
             <LanguageToggle language={language} onChange={handleLanguageChange} />
           </div>
+
+          {/* Featured Image */}
+          {article.featured_image && (
+            <div className="mb-8 rounded-lg overflow-hidden">
+              <img
+                src={article.featured_image}
+                alt={language === 'en' ? article.title : article.title_cn}
+                className="w-full h-auto max-h-[600px] object-contain bg-gray-50"
+              />
+            </div>
+          )}
 
           {article.article_tags && article.article_tags.length > 0 && (
             <div className="flex items-center flex-wrap gap-2">
