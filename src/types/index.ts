@@ -20,6 +20,8 @@ export interface City {
   nameCn: string;
   descriptionCn: string;
   imageUrl: string;
+  imageCredit?: string;
+  imageCreditUrl?: string;
 }
 
 export interface AdminUser {

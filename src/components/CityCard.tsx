@@ -20,6 +20,24 @@ export default function CityCard({ city }: CityCardProps) {
           <h3 className="text-2xl font-bold text-white mb-1">{city.nameEn}</h3>
           <p className="text-lg text-white/90">{city.nameCn}</p>
         </div>
+        {city.imageCredit && (
+          <div className="mt-2 text-sm text-gray-500 text-center">
+            Image Credit:{' '}
+            {city.imageCreditUrl ? (
+              <a
+                href={city.imageCreditUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-gray-600 hover:text-gray-700 underline decoration-dotted"
+              >
+                {city.imageCredit}
+              </a>
+            ) : (
+              city.imageCredit
+            )}
+          </div>
+        )}
       </div>
     </Link>
   );

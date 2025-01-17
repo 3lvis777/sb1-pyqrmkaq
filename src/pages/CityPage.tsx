@@ -330,7 +330,7 @@ export default function CityPage() {
                   {new Date(article.created_at).toLocaleDateString()}
                 </time>
                 <Link
-                  to={`/articles/${article.slug}?lang=${language}`}
+                  to={`/articles/${article.slug}${location.search}`}
                   className="inline-flex items-center mt-4 text-red-600 hover:text-red-700"
                 >
                   {language === 'en' ? 'Read More' : '阅读更多'}

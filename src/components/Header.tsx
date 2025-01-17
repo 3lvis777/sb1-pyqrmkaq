@@ -1,8 +1,9 @@
 import React from 'react';
-import { MapPin, Menu, Search, User, LogOut, LayoutDashboard, Settings } from 'lucide-react';
+import { Search, User, LogOut, LayoutDashboard, Settings } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import MainNav from './MainNav';
 
 export default function Header() {
   const { user, signOut } = useAuth();
@@ -19,18 +20,21 @@ export default function Header() {
         return;
       }
       
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', user.id)
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', user.id)
+          .single();
 
-      if (error) {
+        if (error) throw error;
+        setIsAdmin(data?.is_admin || false);
+      } catch (error) {
         console.error('Error checking admin status:', error);
-      } else {
-        setIsAdmin(data.is_admin);
+        setIsAdmin(false);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     checkAdminStatus();
@@ -59,36 +63,21 @@ export default function Header() {
   }, []);
 
   return (
-    <header className="bg-white shadow-sm relative z-50">
+    <header className="fixed top-0 left-0 right-0 bg-white shadow-sm z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
-            <Link to="/" className="flex items-center">
-              <MapPin className="h-8 w-8 text-red-500" />
-              <span className="ml-2 text-xl font-bold">Japan Guide</span>
-            </Link>
+        <div className="flex items-center justify-between h-16">
+          <div className="flex-1">
+            <MainNav />
           </div>
-
-          <div className="flex-1 max-w-lg mx-8">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
-                type="text"
-                placeholder="Search destinations, restaurants, activities..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            {!loading && user && (
+          <div className="flex items-center ml-4">
+            {user && (
               <div className="relative" ref={dropdownRef}>
                 <button
                   onMouseEnter={() => setShowDropdown(true)}
                   className="p-2 hover:bg-gray-100 rounded-full relative group"
                 >
                   <User className="h-6 w-6 text-gray-600" />
-                  {isAdmin && (
+                  {!loading && isAdmin && (
                     <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full" />
                   )}
                 </button>
@@ -139,9 +128,6 @@ export default function Header() {
                 )}
               </div>
             )}
-            <button className="p-2 hover:bg-gray-100 rounded-full md:hidden">
-              <Menu className="h-6 w-6 text-gray-600" />
-            </button>
           </div>
         </div>
       </div>

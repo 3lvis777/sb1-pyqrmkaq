@@ -25,11 +25,16 @@ export default function ArticlePage() {
   const [language, setLanguage] = useState<'en' | 'cn'>(
     new URLSearchParams(location.search).get('lang') === 'en' ? 'en' : 'cn'
   );
+  
+  // Scroll to top when article loads
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [article]);
 
   useEffect(() => {
     loadArticle();
   }, [slug]);
-  
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const langParam = params.get('lang');
@@ -93,51 +98,75 @@ export default function ArticlePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Article Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-white rounded-lg shadow-xl p-8">
-          {/* Article Header */}
-          <div className="flex justify-between items-start mb-8">
-            <div className="flex-1">
+    <div className="min-h-screen bg-gray-50 relative">
+      {/* Hero Image Section */}
+      {article.featured_image && (
+        <div className="relative w-full h-[100vh]">
+          <img
+            src={article.featured_image}
+            alt={language === 'en' ? article.title : article.title_cn}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+          
+          <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-6 lg:px-8 pb-12">
+            <div className="max-w-4xl mx-auto">
               <div className="flex items-center space-x-4 mb-4">
-                <span className="px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full">
+                <span className="px-3 py-1 bg-red-500 text-white text-sm font-medium rounded-full">
                   {language === 'en' ? article.category?.name : article.category?.name_cn}
                 </span>
-                <span className="text-gray-500">·</span>
-                <div className="flex items-center text-gray-600">
+                <span className="text-white/80">·</span>
+                <div className="flex items-center text-white/80">
                   <Calendar className="h-4 w-4 mr-1" />
                   {new Date(article.created_at).toLocaleDateString()}
                 </div>
+                <div className="flex-1" />
+                <LanguageToggle language={language} onChange={handleLanguageChange} />
               </div>
 
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4 leading-tight">
                 {language === 'en' ? article.title : article.title_cn}
               </h1>
 
               {article.location && (
-                <div className="flex items-center text-gray-600 mb-4">
+                <div className="flex items-center text-white/90 mb-4">
                   <MapPin className="h-5 w-5 mr-2" />
                   <span>
                     {language === 'en' ? article.location.name : article.location.name_cn}
                   </span>
                 </div>
               )}
+
+              {article.featured_image_caption && (
+                <p className="text-white/80 text-sm mt-4">
+                  {article.featured_image_caption}
+                </p>
+              )}
+              {article.featured_image_credit && (
+                <p className="text-white/60 text-sm">
+                  Image Credits:{' '}
+                  {article.featured_image_attribution_url ? (
+                    <a
+                      href={article.featured_image_attribution_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-white/80 hover:text-white transition-colors underline decoration-dotted"
+                    >
+                      {article.featured_image_credit}
+                    </a>
+                  ) : (
+                    <span>{article.featured_image_credit}</span>
+                  )}
+                </p>
+              )}
             </div>
-            <LanguageToggle language={language} onChange={handleLanguageChange} />
           </div>
+        </div>
+      )}
 
-          {/* Featured Image */}
-          {article.featured_image && (
-            <div className="mb-8 rounded-lg overflow-hidden">
-              <img
-                src={article.featured_image}
-                alt={language === 'en' ? article.title : article.title_cn}
-                className="w-full h-auto max-h-[600px] object-contain bg-gray-50"
-              />
-            </div>
-          )}
-
+      {/* Article Content */}
+      <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="bg-white rounded-lg shadow-xl p-8">
           {article.article_tags && article.article_tags.length > 0 && (
             <div className="flex items-center flex-wrap gap-2">
               <Tag className="h-4 w-4 text-gray-400" />

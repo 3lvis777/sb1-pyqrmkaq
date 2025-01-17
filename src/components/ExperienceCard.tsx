@@ -9,6 +9,8 @@ interface ExperienceCardProps {
   duration: string;
   imageUrl: string;
   price: string;
+  imageCredit?: string;
+  imageCreditUrl?: string;
 }
 
 export default function ExperienceCard({
@@ -19,6 +21,8 @@ export default function ExperienceCard({
   duration,
   imageUrl,
   price,
+  imageCredit,
+  imageCreditUrl,
 }: ExperienceCardProps) {
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden group">
@@ -26,9 +30,27 @@ export default function ExperienceCard({
         <img
           src={imageUrl}
           alt={title}
-          className="w-full h-64 object-cover transform group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-48 object-cover transform group-hover:scale-105 transition-transform duration-300"
         />
       </div>
+      {imageCredit && (
+        <div className="mt-2 text-sm text-gray-500 text-center">
+          Image Credit:{' '}
+          {imageCreditUrl ? (
+            <a
+              href={imageCreditUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-gray-600 hover:text-gray-700 underline decoration-dotted"
+            >
+              {imageCredit}
+            </a>
+          ) : (
+            imageCredit
+          )}
+        </div>
+      )}
       <div className="p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-1">
           {title}

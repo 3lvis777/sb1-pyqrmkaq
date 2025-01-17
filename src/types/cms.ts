@@ -20,6 +20,8 @@ export interface Tag {
   created_at: string;
 }
 
+export type ArticleStatus = 'draft' | 'published';
+
 export interface Article {
   id: string;
   category_id: string;
@@ -30,10 +32,14 @@ export interface Article {
   content: string;
   content_cn: string;
   featured_image: string | null;
+  featured_image_caption: string | null;
+  featured_image_credit: string | null;
+  featured_image_license: string | null;
+  featured_image_attribution_url: string | null;
   meta_title: string | null;
   meta_description: string | null;
   status: 'draft' | 'published';
-  status: 'draft' | 'published';
+  status: ArticleStatus;
   published_at: string | null;
   created_at: string;
   updated_at: string;
@@ -60,6 +66,10 @@ export interface ArticleFormData {
   content: string;
   content_cn: string;
   category_id: string;
+  featured_image_caption: string;
+  featured_image_credit: string;
+  featured_image_license: string;
+  featured_image_attribution_url: string;
   status: 'draft' | 'published';
   meta_title: string;
   meta_description: string;
@@ -77,6 +87,8 @@ export interface MediaFile {
   size: number;
   mime_type: string;
   alt_text: string | null;
+  credit: string | null;
+  credit_url: string | null;
   tags: string[];
   usage_count: number;
   created_at: string;

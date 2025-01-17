@@ -2,9 +2,12 @@ import React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
+import { DndContext, closestCenter, useSensor, useSensors, MouseSensor } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
-import { Bold, Italic, List, ListOrdered, Heading1, Heading2, Heading3, Image as ImageIcon, Link as LinkIcon, X } from 'lucide-react';
+import { Bold, Italic, List, ListOrdered, Heading1, Heading2, Heading3, Image as ImageIcon, Link as LinkIcon, X, Plus, GripVertical } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import MediaModal from './MediaModal';
@@ -19,6 +22,7 @@ interface LinkModalProps {
 function LinkModal({ isOpen, onClose, onSubmit, initialText }: LinkModalProps) {
   const [text, setText] = React.useState(initialText || '');
   const [url, setUrl] = React.useState('');
+  const modalRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -29,6 +33,7 @@ function LinkModal({ isOpen, onClose, onSubmit, initialText }: LinkModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     onSubmit(text, url);
     onClose();
   };
@@ -36,7 +41,7 @@ function LinkModal({ isOpen, onClose, onSubmit, initialText }: LinkModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div ref={modalRef} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-medium">Insert Link</h3>
@@ -44,7 +49,7 @@ function LinkModal({ isOpen, onClose, onSubmit, initialText }: LinkModalProps) {
             <X className="h-5 w-5" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Display Text
@@ -78,33 +83,17 @@ function LinkModal({ isOpen, onClose, onSubmit, initialText }: LinkModalProps) {
               Cancel
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-500 hover:bg-red-600"
             >
               Insert Link
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
-}
-
-async function handleImageUpload(file: File): Promise<string> {
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from('images')
-    .upload(fileName, file);
-
-  if (uploadError) throw uploadError;
-
-  const { data: { publicUrl } } = supabase.storage
-    .from('images')
-    .getPublicUrl(fileName);
-
-  return publicUrl;
 }
 
 async function processClipboardItem(item: DataTransferItem, editor: any): Promise<void> {
@@ -113,7 +102,8 @@ async function processClipboardItem(item: DataTransferItem, editor: any): Promis
     if (file) {
       try {
         const url = await handleImageUpload(file);
-        editor.chain().focus().setImage({ src: url }).run();
+        editor.chain().focus().setImage({ src: url, alt: 'Image Credit:', title: 'Click to edit image' }).run();
+        return;
       } catch (error) {
         console.error('Error uploading clipboard image:', error);
         toast.error('Failed to upload clipboard image');
@@ -203,22 +193,27 @@ interface EditorProps {
   placeholder?: string;
 }
 
-async function uploadImage(file: File): Promise<string> {
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+const handleImageUpload = async (file: File): Promise<string> => {
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from('images')
-    .upload(fileName, file);
+    const { error: uploadError } = await supabase.storage
+      .from('images')
+      .upload(fileName, file);
 
-  if (uploadError) throw uploadError;
+    if (uploadError) throw uploadError;
 
-  const { data: { publicUrl } } = supabase.storage
-    .from('images')
-    .getPublicUrl(fileName);
+    const { data: { publicUrl } } = supabase.storage
+      .from('images')
+      .getPublicUrl(fileName);
 
-  return publicUrl;
-}
+    return publicUrl;
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    throw error;
+  }
+};
 
 const MenuBar = ({ editor }: { editor: any }) => {
   if (!editor) {
@@ -248,15 +243,56 @@ const MenuBar = ({ editor }: { editor: any }) => {
     }
   };
 
-  const handleImageSelect = (url: string) => {
-    editor.chain().focus().setImage({ src: url }).run();
+  const handleImageSelect = async (url: string, credit?: string, creditUrl?: string) => {
+    if (!editor) return;
+    
+    const caption = credit ? `Image Credit: ${credit}` : '';
+
+    editor.chain().focus().setImage({ 
+      src: url,
+      alt: caption,
+      title: credit || undefined,
+      'data-credit-url': creditUrl
+    }).run();
+    
     setShowMediaModal(false);
+    toast.success('Image inserted successfully');
   };
 
   const handlePaste = async (event: ClipboardEvent) => {
     event.preventDefault(); // Prevent default paste behavior
+    event.stopPropagation(); // Stop event bubbling
+    
     const text = event.clipboardData?.getData('text/plain');
     const html = event.clipboardData?.getData('text/html');
+    const items = event.clipboardData?.items;
+
+    // Handle pasted images
+    if (items) {
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            try {
+              const url = await handleImageUpload(file);
+              editor
+                .chain()
+                .focus()
+                .setImage({ 
+                  src: url, 
+                  alt: 'Image Credit:',
+                  title: credit ? `Image Credit: ${credit}` : 'Click to edit image'
+                })
+                .run();
+              return;
+            } catch (error) {
+              console.error('Error uploading pasted image:', error);
+              toast.error('Failed to upload pasted image');
+            }
+          }
+        }
+      }
+    }
 
     if (html) {
       const tempDiv = document.createElement('div');
@@ -384,12 +420,14 @@ const MenuBar = ({ editor }: { editor: any }) => {
         <ListOrdered className="h-4 w-4" />
       </button>
       <button
+        type="button"
         onClick={() => setShowMediaModal(true)}
         className="p-2 rounded hover:bg-gray-100"
       >
         <ImageIcon className="h-4 w-4" />
       </button>
       <button
+        type="button"
         onClick={() => setShowLinkModal(true)}
         className="p-2 rounded hover:bg-gray-100"
       >
@@ -440,8 +478,119 @@ export default function Editor({ content, onChange, placeholder }: EditorProps) 
       }),
       Image.configure({
         HTMLAttributes: {
-          class: 'rounded-lg max-w-full h-auto',
+          class: 'rounded-lg max-w-full mx-auto my-4 group',
+          draggable: false,
+          contenteditable: false,
+          style: 'min-width: 100px; max-width: 100%'
         },
+        allowBase64: false,
+        resizable: true,
+        parseHTML() {
+          return [
+            {
+              tag: 'div.image-container',
+              getAttrs: dom => ({
+                src: dom.querySelector('img')?.getAttribute('src'),
+                alt: dom.querySelector('img')?.getAttribute('alt'),
+                title: dom.querySelector('img')?.getAttribute('title'),
+                'data-credit-url': dom.querySelector('img')?.getAttribute('data-credit-url'),
+                'data-caption': dom.querySelector('.image-caption')?.textContent
+              })
+            }
+          ];
+        },
+        renderHTML({ HTMLAttributes }) {
+          const credit = HTMLAttributes.title;
+          const creditUrl = HTMLAttributes['data-credit-url'];
+          const caption = HTMLAttributes['data-caption'];
+          
+          return [
+            'div',
+            { 
+              class: 'image-container'
+            },
+            [
+              'img',
+              { ...HTMLAttributes, contenteditable: 'false' }
+            ],
+            caption ? [
+              'div',
+              { 
+                class: 'image-caption',
+                contenteditable: 'true',
+                'data-placeholder': 'Add a caption...'
+              },
+              caption
+            ] : '',
+            credit ? [
+              'div',
+              { 
+                class: 'image-credit',
+              },
+              creditUrl ? [
+                'a',
+                {
+                  href: creditUrl,
+                  target: '_blank',
+                  rel: 'noopener noreferrer'
+                },
+                `Image Credit: ${credit}`
+              ] : `Image Credit: ${credit}`
+            ] : ''
+          ];
+        },
+        handleDOMEvents: {
+          mousedown: (view, event) => {
+            const target = event.target as HTMLElement;
+            if (target.classList.contains('image-resizer') || target.closest('.image-resizer')) {
+              event.preventDefault();
+              const wrapper = target.closest('.image-wrapper');
+              const img = wrapper?.querySelector('img');
+              if (!img) return false;
+              
+              const startX = event.pageX;
+              const startY = event.pageY;
+              const startWidth = img.offsetWidth;
+              const startHeight = img.offsetHeight;
+              const aspectRatio = startWidth / startHeight;
+              
+              const onMouseMove = (e: MouseEvent) => {
+                const dx = e.pageX - startX;
+                const dy = e.pageY - startY;
+                
+                // Maintain aspect ratio
+                let newWidth = startWidth + dx;
+                let newHeight = newWidth / aspectRatio;
+                
+                // Set minimum size
+                if (newWidth < 100) {
+                  newWidth = 100;
+                  newHeight = newWidth / aspectRatio;
+                }
+                
+                // Set maximum size
+                const maxWidth = view.dom.offsetWidth * 0.9;
+                if (newWidth > maxWidth) {
+                  newWidth = maxWidth;
+                  newHeight = newWidth / aspectRatio;
+                }
+                
+                img.style.width = `${newWidth}px`;
+                img.style.height = `${newHeight}px`;
+              };
+              
+              const onMouseUp = () => {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+              };
+              
+              document.addEventListener('mousemove', onMouseMove);
+              document.addEventListener('mouseup', onMouseUp);
+              return true;
+            }
+            return false;
+          }
+        }
       }),
       Placeholder.configure({
         placeholder: placeholder || 'Start writing...',
@@ -453,11 +602,47 @@ export default function Editor({ content, onChange, placeholder }: EditorProps) 
     },
     editorProps: {
       attributes: {
-        class: 'prose max-w-none focus:outline-none min-h-[200px] px-4 py-2 markdown-content',
+        class: 'prose max-w-none focus:outline-none min-h-[200px] max-h-[600px] px-4 py-2 markdown-content overflow-y-auto',
       },
+      handleDOMEvents: {
+        keydown: (view, event) => {
+          if (event.key === 'Delete' || event.key === 'Backspace') {
+            const { from, to } = view.state.selection;
+            const node = view.state.doc.nodeAt(from);
+            if (node?.type.name === 'image') {
+              event.preventDefault();
+              view.dispatch(view.state.tr.delete(from, to));
+              return true;
+            }
+          }
+          return false;
+        }
+      }
     },
   });
-  
+
+  // Add resize handles to images
+  React.useEffect(() => {
+    if (editor) {
+      const images = editor.view.dom.getElementsByTagName('img');
+      Array.from(images).forEach(img => {
+        if (!img.parentElement?.classList.contains('image-wrapper')) {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'image-wrapper';
+          img.parentNode?.insertBefore(wrapper, img);
+          wrapper.appendChild(img);
+          
+          // Add resize handles
+          const handles = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+          handles.forEach(position => {
+            const handle = document.createElement('div');
+            handle.className = `image-resizer ${position}`;
+            wrapper.appendChild(handle);
+          });
+        }
+      });
+    }
+  }, [editor?.getHTML()]);
 
   React.useEffect(() => {
     if (editor && content !== editor.getHTML()) {
@@ -465,11 +650,107 @@ export default function Editor({ content, onChange, placeholder }: EditorProps) 
     }
   }, [content, editor]);
 
-  const handleImageSelect = (url: string) => {
-    if (editor) {
-      editor.chain().focus().setImage({ src: url }).run();
+  const handleImageSelect = async (url: string, credit?: string, creditUrl?: string) => {
+    if (!editor) return;
+    
+    const caption = credit ? `Image Credit: ${credit}` : '';
+
+    editor.chain().focus().setImage({ 
+      src: url,
+      alt: caption,
+      title: credit || undefined,
+      'data-credit-url': creditUrl
+    }).run();
+    
+    setShowMediaModal(false);
+    toast.success('Image inserted successfully');
+  };
+
+  // Handle drag and drop
+  const handleDrop = (event: DragEvent) => {
+    event.preventDefault();
+    
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Only image files are allowed');
+        return;
+      }
+      
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size must be less than 5MB');
+        return;
+      }
+      
+      // Upload and insert image
+      handleImageUpload(file).then(url => {
+        handleImageSelect(url);
+      }).catch(error => {
+        console.error('Error uploading image:', error);
+        toast.error('Failed to upload image');
+      });
     }
   };
+
+  // Handle paste
+  const handlePaste = async (event: ClipboardEvent) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        event.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          try {
+            const url = await handleImageUpload(file);
+            handleImageSelect(url);
+          } catch (error) {
+            console.error('Error uploading pasted image:', error);
+            toast.error('Failed to upload pasted image');
+          }
+        }
+      }
+    }
+  };
+
+  // Add event listeners
+  React.useEffect(() => {
+    if (editor?.view?.dom) {
+      const dom = editor.view.dom;
+      dom.addEventListener('drop', handleDrop);
+      dom.addEventListener('paste', handlePaste);
+
+      // Handle caption editing
+      dom.addEventListener('input', (e) => {
+        const target = e.target as HTMLElement;
+        if (target.classList.contains('image-caption')) {
+          const container = target.closest('.image-container');
+          const img = container?.querySelector('img');
+          if (img) {
+            img.setAttribute('data-caption', target.textContent || '');
+          }
+        }
+      });
+      
+      // Handle image clicks for editing
+      dom.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'IMG' || target.classList.contains('image-caption')) {
+          setShowMediaModal(true);
+        }
+      });
+      
+      return () => {
+        dom.removeEventListener('drop', handleDrop);
+        dom.removeEventListener('paste', handlePaste);
+      };
+    }
+  }, [editor]);
 
   return (
     <div className="border rounded-lg overflow-hidden bg-white">

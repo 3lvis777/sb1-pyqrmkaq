@@ -7,7 +7,6 @@ import {
   FolderTree, 
   Image, 
   Settings, 
-  Map,
   LogOut
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -44,12 +43,6 @@ const menuItems = [
     path: '/admin/media'
   },
   {
-    icon: Map,
-    label: 'Region Images',
-    labelCn: '地区图片',
-    path: '/admin/media?view=regions'
-  },
-  {
     icon: Settings,
     label: 'Settings',
     labelCn: '设置',
@@ -64,11 +57,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <div className="w-64 bg-white shadow-sm">
+      <div className="w-64 bg-white shadow-sm flex flex-col">
         <div className="h-16 flex items-center px-6 border-b">
           <h1 className="text-xl font-bold text-gray-900">Admin Panel</h1>
         </div>
-        <nav className="p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -86,18 +79,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <Icon className={`h-5 w-5 mr-3 ${
                   isActive ? 'text-red-500' : 'text-gray-400'
                 }`} />
-                <span>{item.label}</span>
-                <span className="ml-2 text-sm opacity-75">{item.labelCn}</span>
+                <div className="flex-1">
+                  <span>{item.label}</span>
+                  <span className="ml-2 text-sm opacity-75">{item.labelCn}</span>
+                </div>
               </Link>
             );
           })}
           <button
             onClick={() => signOut()}
-            className="w-full flex items-center px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-md transition-colors"
+            className="w-full flex items-center px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-md transition-colors mt-auto"
           >
             <LogOut className="h-5 w-5 mr-3 text-gray-400" />
-            <span>Sign Out</span>
-            <span className="ml-2 text-sm opacity-75">退出</span>
+            <div className="flex-1">
+              <span>Sign Out</span>
+              <span className="ml-2 text-sm opacity-75">退出</span>
+            </div>
           </button>
         </nav>
       </div>

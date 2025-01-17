@@ -1,20 +1,77 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Eye, Check, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
-import type { Article } from '../../types/cms';
+import type { Article, ArticleStatus } from '../../types/cms';
 
 export default function Articles() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'published'>('all');
+  const [activeTab, setActiveTab] = useState<ArticleStatus | 'all'>('all');
+  const [selectedArticles, setSelectedArticles] = useState<string[]>([]);
+  const [showBulkActions, setShowBulkActions] = useState(false);
 
   useEffect(() => {
     loadArticles();
   }, []);
+
+  // Clear selections when tab changes
+  useEffect(() => {
+    setSelectedArticles([]);
+  }, [activeTab]);
+
+  const handleSelectAll = () => {
+    if (selectedArticles.length === filteredArticles.length) {
+      setSelectedArticles([]);
+    } else {
+      setSelectedArticles(filteredArticles.map(article => article.id));
+    }
+  };
+
+  const handleSelectArticle = (articleId: string) => {
+    setSelectedArticles(prev => 
+      prev.includes(articleId) 
+        ? prev.filter(id => id !== articleId)
+        : [...prev, articleId]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedArticles.length === 0) return;
+
+    const confirmed = window.confirm(`Are you sure you want to delete ${selectedArticles.length} articles?`);
+    if (!confirmed) return;
+
+    try {
+      // Delete article tags first
+      const { error: tagsError } = await supabase
+        .from('article_tags')
+        .delete()
+        .in('article_id', selectedArticles);
+
+      if (tagsError) throw tagsError;
+
+      // Then delete the articles
+      const { error } = await supabase
+        .from('articles')
+        .delete()
+        .in('id', selectedArticles);
+
+      if (error) throw error;
+
+      toast.success(`${selectedArticles.length} articles deleted successfully`);
+      setArticles(prevArticles => 
+        prevArticles.filter(article => !selectedArticles.includes(article.id))
+      );
+      setSelectedArticles([]);
+    } catch (error) {
+      console.error('Error deleting articles:', error);
+      toast.error('Failed to delete articles');
+    }
+  };
 
   async function handleDelete(articleId: string) {
     const confirmed = window.confirm('Are you sure you want to delete this article?');
@@ -71,55 +128,79 @@ export default function Articles() {
 
   const filteredArticles = articles.filter(
     (article) =>
-      article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      article.title_cn.includes(searchQuery) &&
-      (statusFilter === 'all' || article.status === statusFilter)
+      (article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      article.title_cn.includes(searchQuery)) &&
+      (activeTab === 'all' || article.status === activeTab)
   );
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Articles</h1>
-        <Link
-          to="/admin/articles/new"
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-500 hover:bg-red-600"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          New Article
-        </Link>
+        <div className="flex items-center space-x-4">
+          {selectedArticles.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowBulkActions(!showBulkActions)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Bulk Actions ({selectedArticles.length})
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </button>
+              
+              {showBulkActions && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 border">
+                  <button
+                    onClick={handleBulkDelete}
+                    className="w-full px-4 py-2 text-sm text-left text-red-600 hover:bg-gray-50"
+                  >
+                    Delete Selected
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          <Link
+            to="/admin/articles/new"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-500 hover:bg-red-600"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Article
+          </Link>
+        </div>
       </div>
 
       <div className="mb-6">
         <div className="flex items-center space-x-4 mb-4">
           <button
-            onClick={() => setStatusFilter('all')}
+            onClick={() => setActiveTab('all')}
             className={`px-4 py-2 rounded-full text-sm font-medium ${
-              statusFilter === 'all'
+              activeTab === 'all'
                 ? 'bg-red-500 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            All
+            All ({articles.length})
           </button>
           <button
-            onClick={() => setStatusFilter('draft')}
+            onClick={() => setActiveTab('draft')}
             className={`px-4 py-2 rounded-full text-sm font-medium ${
-              statusFilter === 'draft'
+              activeTab === 'draft'
                 ? 'bg-red-500 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            Drafts
+            Drafts ({articles.filter(a => a.status === 'draft').length})
           </button>
           <button
-            onClick={() => setStatusFilter('published')}
+            onClick={() => setActiveTab('published')}
             className={`px-4 py-2 rounded-full text-sm font-medium ${
-              statusFilter === 'published'
+              activeTab === 'published'
                 ? 'bg-red-500 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            Published
+            Published ({articles.filter(a => a.status === 'published').length})
           </button>
         </div>
         <div className="relative">
@@ -138,6 +219,16 @@ export default function Articles() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              <th className="pl-6 pr-3 py-3 text-left">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 text-red-500 border-gray-300 rounded focus:ring-red-500"
+                    checked={selectedArticles.length === filteredArticles.length && filteredArticles.length > 0}
+                    onChange={handleSelectAll}
+                  />
+                </div>
+              </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Title
               </th>
@@ -157,7 +248,22 @@ export default function Articles() {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredArticles.map((article) => (
-              <tr key={article.id}>
+              <tr 
+                key={article.id}
+                className={`${
+                  selectedArticles.includes(article.id) ? 'bg-red-50' : ''
+                } hover:bg-gray-50 transition-colors`}
+              >
+                <td className="pl-6 pr-3 py-4 whitespace-nowrap">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 text-red-500 border-gray-300 rounded focus:ring-red-500"
+                      checked={selectedArticles.includes(article.id)}
+                      onChange={() => handleSelectArticle(article.id)}
+                    />
+                  </div>
+                </td>
                 <td className="px-6 py-4">
                   <div className="text-sm font-medium text-gray-900">
                     {article.title}
